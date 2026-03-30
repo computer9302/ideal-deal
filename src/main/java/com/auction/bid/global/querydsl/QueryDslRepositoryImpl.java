@@ -176,10 +176,11 @@ public class QueryDslRepositoryImpl implements QueryDslRepository{
      * @return 입찰 목록
      */
     @Override
-    public List<Bid> findAllByProductId(Long productId) {
+    public List<Bid> findAllByAuctionProductId(Long productId) {
         return queryFactory
                 .selectFrom(bid)
-                .leftJoin(bid.product, product).fetchJoin()
+                .leftJoin(bid.auction, auction).fetchJoin()
+                .leftJoin(auction.product, product).fetchJoin()
                 .leftJoin(bid.member, member).fetchJoin()
                 .where(product.id.eq(productId))
                 .fetch();

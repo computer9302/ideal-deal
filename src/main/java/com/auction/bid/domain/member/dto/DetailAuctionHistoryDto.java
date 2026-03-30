@@ -36,8 +36,8 @@ public class DetailAuctionHistoryDto {
                 .sellerNickname(product.getMember().getNickname())
                 .title(product.getTitle())
                 .startBid(product.getStartBid())
-                .auctionStart(product.getAuctionStart())
-                .auctionEnd(product.getAuctionEnd())
+                .auctionStart(auction.getAuctionStart())
+                .auctionEnd(auction.getAuctionEnd())
 
                 .auctionStatus(auction.getAuctionStatus())
                 .finalAmount(auction.getAuctionWinnerPrice())

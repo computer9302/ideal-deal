@@ -1,5 +1,7 @@
 package com.auction.bid.domain.product;
 
+import com.auction.bid.domain.auction.Auction;
+import com.auction.bid.domain.auction.AuctionRepository;
 import com.auction.bid.domain.bid.BidDto;
 import com.auction.bid.domain.category.Category;
 import com.auction.bid.domain.category.CategoryRepository;
@@ -55,6 +57,7 @@ public class ProductServiceImpl implements ProductService {
     private final PhotoRepository photoRepository;
     private final MemberRepository memberRepository;
     private final CategoryRepository categoryRepository;
+    private final AuctionRepository auctionRepository;
     private final TaskScheduler taskScheduler;
     private final AuctionScheduler auctionScheduler;
     private final QueryDslRepository queryDslRepository;
@@ -92,9 +95,10 @@ public class ProductServiceImpl implements ProductService {
 
         uploadPhoto(product, images);
         Product savedProduct = productRepository.save(product);
+        saveAuctionSchedule(savedProduct, request.getAuctionStart(), request.getAuctionEnd());
 
-        scheduleAuction(product);
-        return ProductDto.Response.fromEntity(savedProduct);
+        scheduleAuction(savedProduct.getId(), request.getAuctionStart(), request.getAuctionEnd());
+        return ProductDto.Response.fromEntity(savedProduct, request.getAuctionStart(), request.getAuctionEnd());
     }
 
     /**
@@ -143,12 +147,34 @@ public class ProductServiceImpl implements ProductService {
      * 경매 시작/종료 시간 스케줄링
      * @param product 스케줄링할 상품
      */
-    private void scheduleAuction(Product product) {
-        Instant startDate = product.getAuctionStart().atZone(Clock.systemDefaultZone().getZone()).toInstant();
-        taskScheduler.schedule(() -> auctionScheduler.openAuction(product), startDate);
+    private void scheduleAuction(Long productId, LocalDateTime auctionStart, LocalDateTime auctionEnd) {
+        Instant startDate = auctionStart.atZone(Clock.systemDefaultZone().getZone()).toInstant();
+        taskScheduler.schedule(() -> auctionScheduler.openAuction(productId, auctionStart, auctionEnd), startDate);
 
-        Instant endDate = product.getAuctionEnd().atZone(Clock.systemDefaultZone().getZone()).toInstant();
-        taskScheduler.schedule(() -> auctionScheduler.closeAuction(product), endDate);
+        Instant endDate = auctionEnd.atZone(Clock.systemDefaultZone().getZone()).toInstant();
+        taskScheduler.schedule(() -> auctionScheduler.closeAuction(productId), endDate);
+    }
+
+    private void saveAuctionSchedule(Product product, LocalDateTime auctionStart, LocalDateTime auctionEnd) {
+        Auction scheduleAuction = auctionRepository.findFirstByProductIdAndMemberIsNullOrderByIdAsc(product.getId())
+                .orElse(null);
+
+        if (scheduleAuction == null) {
+            auctionRepository.save(Auction.fromSchedule(product, auctionStart, auctionEnd));
+            return;
+        }
+
+        auctionRepository.save(
+                Auction.builder()
+                        .id(scheduleAuction.getId())
+                        .member(scheduleAuction.getMember())
+                        .product(product)
+                        .auctionWinnerPrice(scheduleAuction.getAuctionWinnerPrice())
+                        .auctionStatus(scheduleAuction.getAuctionStatus())
+                        .auctionStart(auctionStart)
+                        .auctionEnd(auctionEnd)
+                        .build()
+        );
     }
 
     /**
@@ -266,8 +292,6 @@ public class ProductServiceImpl implements ProductService {
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .startBid(request.getStartBid())
-                .auctionStart(request.getAuctionStart())
-                .auctionEnd(request.getAuctionEnd())
                 .member((memberRepository.findByMemberUUID(memberId).orElseThrow(
                         () -> new MemberException(ErrorCode.NOT_EXIST_MEMBER))))
                 .category(categoryRepository.findByCategoryName(request.getCategory()).orElseThrow(
@@ -276,7 +300,8 @@ public class ProductServiceImpl implements ProductService {
 
         Product savedProduct = productRepository.save(productUpdate);
         uploadPhoto(productUpdate, images);
-        return ProductDto.Response.fromEntity(savedProduct);
+        saveAuctionSchedule(savedProduct, request.getAuctionStart(), request.getAuctionEnd());
+        return ProductDto.Response.fromEntity(savedProduct, request.getAuctionStart(), request.getAuctionEnd());
     }
 
     /**
@@ -348,16 +373,16 @@ public class ProductServiceImpl implements ProductService {
 
         List<Map.Entry<Long, List<BidDto>>> selectedEntries = sortedHashEntries.subList(start, Math.min(end, listSize));
 
-        List<Long> productIds = selectedEntries.stream()
+        List<Long> auctionIds = selectedEntries.stream()
                 .map(Map.Entry::getKey)
                 .toList();
 
-        List<Product> productList = queryDslRepository.findAllByProductIds(productIds);
+        List<Auction> auctions = auctionRepository.findAllById(auctionIds);
 
-        Map<Long, Product> productMap = productList.stream()
-                .collect(Collectors.toMap(Product::getId, product -> product));
+        Map<Long, Product> productMap = auctions.stream()
+                .collect(Collectors.toMap(Auction::getId, Auction::getProduct));
 
-        List<Product> sortedProductList = productIds.stream()
+        List<Product> sortedProductList = auctionIds.stream()
                 .map(productMap::get)
                 .filter(Objects::nonNull)
                 .toList();
@@ -450,7 +475,8 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ProductException(ErrorCode.NOT_EXISTS_PRODUCT));
 
-        return ProductGetDto.Response.fromEntity(product, photos);
+        Auction auction = auctionRepository.findFirstByProductIdAndMemberIsNullOrderByIdAsc(productId).orElse(null);
+        return ProductGetDto.Response.fromEntity(product, photos, auction);
     }
 
 }

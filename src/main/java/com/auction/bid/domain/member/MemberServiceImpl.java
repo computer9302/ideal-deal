@@ -1,9 +1,12 @@
 package com.auction.bid.domain.member;
 
 import com.auction.bid.domain.auction.Auction;
+import com.auction.bid.domain.auction.AuctionRepository;
 import com.auction.bid.domain.auction.AuctionStatus;
 import com.auction.bid.domain.bid.Bid;
 import com.auction.bid.domain.member.dto.*;
+import com.auction.bid.domain.memberAddress.MemberAddress;
+import com.auction.bid.domain.memberAddress.MemberAddressRepository;
 import com.auction.bid.domain.sale.Sale;
 import com.auction.bid.domain.sale.SaleStatus;
 import com.auction.bid.global.exception.ErrorCode;
@@ -31,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -49,6 +53,8 @@ public class MemberServiceImpl implements MemberService{
     private final RedisTemplate<String, Object> redisTemplate;
     private final RefreshTokenRepository refreshTokenRepository;
     private final QueryDslRepository queryDslRepository;
+    private final MemberAddressRepository memberAddressRepository;
+    private final AuctionRepository auctionRepository;
 
     /**
      * 회원가입 처리
@@ -67,6 +73,11 @@ public class MemberServiceImpl implements MemberService{
 
         String encodedPassword = bCryptPasswordEncoder.encode(request.getPassword());
         Member savedMember = memberRepository.save(SignUpDto.Request.toEntity(request, encodedPassword));
+
+        if (request.getAddressRequest() != null){
+            MemberAddress address = SignUpDto.Request.toAddressEntity(request, savedMember, true);
+            memberAddressRepository.save(address);
+        }
         return SignUpDto.Response.fromEntity(savedMember);
     }
 
@@ -259,7 +270,7 @@ public class MemberServiceImpl implements MemberService{
         Member findMember = memberRepository.findByMemberUUID(memberUUID)
                 .orElseThrow(() -> new MemberException(ErrorCode.NOT_EXIST_MEMBER));
         Auction findAuction = queryDslRepository.getAuctionEagerly(auctionId);
-        List<BidHistoryDto> bidDtoList = getBidDtoList(findAuction.getProduct().getId());
+        List<BidHistoryDto> bidDtoList = getBidHistoryByProductId(findAuction.getProduct().getId());
         return DetailAuctionHistoryDto.fromAuction(findAuction, findMember.getId(), bidDtoList);
     }
 
@@ -289,8 +300,12 @@ public class MemberServiceImpl implements MemberService{
     @Override
     public DetailSaleHistoryDto getSaleDetail(Long saleId) {
         Sale findSale = queryDslRepository.getSaleEagerly(saleId);
-        List<BidHistoryDto> bidDtoList = getBidDtoList(findSale.getProduct().getId());
-        return DetailSaleHistoryDto.fromSale(findSale, bidDtoList);
+        List<BidHistoryDto> bidDtoList = getBidHistoryByProductId(findSale.getProduct().getId());
+        Auction auction = auctionRepository.findFirstByProductIdAndMemberIsNullOrderByIdAsc(findSale.getProduct().getId())
+                .orElse(null);
+        LocalDateTime auctionStart = auction != null ? auction.getAuctionStart() : null;
+        LocalDateTime auctionEnd = auction != null ? auction.getAuctionEnd() : null;
+        return DetailSaleHistoryDto.fromSale(findSale, auctionStart, auctionEnd, bidDtoList);
     }
 
     /**
@@ -298,8 +313,8 @@ public class MemberServiceImpl implements MemberService{
      * @param productId 상품 ID
      * @return 입찰 기록 DTO 목록
      */
-    private List<BidHistoryDto> getBidDtoList(Long productId) {
-        List<Bid> bidList = queryDslRepository.findAllByProductId(productId);
+    private List<BidHistoryDto> getBidHistoryByProductId(Long productId) {
+        List<Bid> bidList = queryDslRepository.findAllByAuctionProductId(productId);
         return bidList.stream()
                 .map(BidHistoryDto::fromBidEntity)
                 .toList();

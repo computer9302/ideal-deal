@@ -1,7 +1,7 @@
 package com.auction.bid.domain.member.dto;
 
-import com.auction.bid.domain.member.Address;
 import com.auction.bid.domain.member.Member;
+import com.auction.bid.domain.memberAddress.MemberAddress;
 import com.auction.bid.global.security.ConstSecurity;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -42,7 +42,7 @@ public class SignUpDto {
 
         @Valid
         @NotNull
-        private Address address;
+        private MemberAddress addressRequest;
 
 
         public static Member toEntity(Request request, String encodedPassword) {
@@ -55,10 +55,19 @@ public class SignUpDto {
                     .name(request.getName())
                     .phoneNumber(request.getPhoneNumber())
                     .emailVerified(true)
-                    .address(request.getAddress())
-                    .provider("simple")
                     .role(ConstSecurity.ROLE_MEMBER)
                     .build();
+        }
+
+        public static MemberAddress toAddressEntity(Request req, Member member, boolean isDefault){
+            MemberAddress a = req.getAddressRequest();
+                    return MemberAddress.builder()
+                            .member(member)
+                            .city(a.getCity())
+                            .street(a.getStreet())
+                            .zipcode(a.getZipcode())
+                            .isDefault(isDefault)
+                            .build();
         }
 
     }

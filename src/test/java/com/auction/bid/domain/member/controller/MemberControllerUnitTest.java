@@ -1,11 +1,11 @@
 package com.auction.bid.domain.member.controller;
 
-import com.auction.bid.domain.member.Address;
 import com.auction.bid.domain.member.MemberController;
 import com.auction.bid.domain.member.MemberService;
 import com.auction.bid.domain.member.dto.EmailDto;
 import com.auction.bid.domain.member.dto.SignUpDto;
 import com.auction.bid.domain.member.dto.TokenVerificationDto;
+import com.auction.bid.domain.memberAddress.MemberAddress;
 import com.auction.bid.global.security.ConstSecurity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +44,7 @@ class MemberControllerUnitTest {
     private SignUpDto.Response signUpRes;
 
     @BeforeEach()
-    private void setUp() {
+    public void setUp() {
         signUpReq = SignUpDto.Request.builder()
                 .loginId("testLoginId")
                 .password("1234567890")
@@ -53,8 +53,8 @@ class MemberControllerUnitTest {
                 .name("testName")
                 .phoneNumber("010-1234-5678")
                 .emailVerified(true)
-                .address(
-                        Address.builder()
+                .addressRequest(
+                        MemberAddress.builder()
                                 .city("seoul")
                                 .street("saemalo")
                                 .zipcode("548")
@@ -90,8 +90,8 @@ class MemberControllerUnitTest {
     @WithMockUser
     void emptyDto_throws_ex() throws Exception {
         signUpReq = SignUpDto.Request.builder()
-                .address(
-                        Address.builder()
+                .addressRequest(
+                        MemberAddress.builder()
                                 .city("seoul")
                                 .street("saemalo")
                                 .zipcode("548")

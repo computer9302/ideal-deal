@@ -1,5 +1,6 @@
 package com.auction.bid.global.config;
 
+import com.auction.bid.domain.auction.AuctionRepository;
 import com.auction.bid.domain.member.MemberService;
 import com.auction.bid.domain.product.ProductService;
 import com.auction.bid.global.security.jwt.JWTUtil;
@@ -20,12 +21,13 @@ public class WebSocketConfig implements WebSocketConfigurer {
     private final JWTUtil jwtUtil;
     private final MemberService memberService;
     private final ProductService productService;
+    private final AuctionRepository auctionRepository;
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(webSocketHandler, "/ws/bid/*")
                 .setAllowedOrigins("*")
-                .addInterceptors(new CustomHandshakeInterceptor(jwtUtil, memberService, productService));
+                .addInterceptors(new CustomHandshakeInterceptor(jwtUtil, memberService, productService, auctionRepository));
     }
 
 }

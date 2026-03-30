@@ -30,7 +30,7 @@ public class ProductController {
      * @param token 사용자 인증 토큰
      * @return 등록된 상품 정보
      */
-    @PostMapping
+    @PostMapping("/register")
     @PreAuthorize(ConstSecurity.HAS_ROLE_MEMBER)
     public ResponseEntity<?> registerProduct(
             @Valid @RequestParam("images") List<MultipartFile> images,

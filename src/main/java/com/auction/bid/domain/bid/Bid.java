@@ -1,7 +1,7 @@
 package com.auction.bid.domain.bid;
 
+import com.auction.bid.domain.auction.Auction;
 import com.auction.bid.domain.member.Member;
-import com.auction.bid.domain.product.Product;
 import com.auction.bid.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -24,8 +24,8 @@ public class Bid extends BaseEntity {
     private Member member;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id")
-    private Product product;
+    @JoinColumn(name = "auction_id")
+    private Auction auction;
 
     private Long bidAmount;
     private LocalDateTime bidTime;

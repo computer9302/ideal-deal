@@ -1,13 +1,22 @@
 package com.auction.bid.domain.member.service;
 
-import com.auction.bid.domain.member.Address;
+import com.auction.bid.domain.auction.Auction;
+import com.auction.bid.domain.auction.AuctionRepository;
+import com.auction.bid.domain.bid.Bid;
 import com.auction.bid.domain.member.MemberRepository;
 import com.auction.bid.domain.member.MemberServiceImpl;
+import com.auction.bid.domain.member.dto.DetailSaleHistoryDto;
 import com.auction.bid.domain.member.dto.SignUpDto;
+import com.auction.bid.domain.memberAddress.MemberAddress;
+import com.auction.bid.domain.memberAddress.MemberAddressRepository;
+import com.auction.bid.domain.product.Product;
+import com.auction.bid.domain.sale.Sale;
+import com.auction.bid.domain.sale.SaleStatus;
 import com.auction.bid.global.exception.ErrorCode;
 import com.auction.bid.global.exception.exceptions.AuthException;
 import com.auction.bid.global.exception.exceptions.MailException;
 import com.auction.bid.global.exception.exceptions.MemberException;
+import com.auction.bid.global.querydsl.QueryDslRepository;
 import com.auction.bid.global.security.ConstSecurity;
 import com.auction.bid.global.security.RefreshTokenRepository;
 import com.auction.bid.global.security.jwt.JWTUtil;
@@ -15,6 +24,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -22,6 +33,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -50,6 +64,15 @@ class MemberServiceImplUnitTest {
     BCryptPasswordEncoder bCryptPasswordEncoder;
 
     @Mock
+    MemberAddressRepository memberAddressRepository;
+
+    @Mock
+    QueryDslRepository queryDslRepository;
+
+    @Mock
+    AuctionRepository auctionRepository;
+
+    @Mock
     private RedisTemplate<String, Object> redisTemplate;
 
     @InjectMocks
@@ -57,6 +80,10 @@ class MemberServiceImplUnitTest {
 
     SignUpDto.Request signUpReq;
     SignUpDto.Response signUpRes;
+
+    @Captor
+    ArgumentCaptor<MemberAddress> addrCaptor;
+
 
     @BeforeEach
     void setUp() {
@@ -68,8 +95,8 @@ class MemberServiceImplUnitTest {
                 .name("testName")
                 .phoneNumber("010-1234-5678")
                 .emailVerified(true)
-                .address(
-                        Address.builder()
+                .addressRequest(
+                        MemberAddress.builder()
                                 .city("seoul")
                                 .street("saemalo")
                                 .zipcode("548")
@@ -91,12 +118,22 @@ class MemberServiceImplUnitTest {
                 .thenReturn(false);
         when(memberRepository.save(any()))
                 .thenReturn(SignUpDto.Request.toEntity(signUpReq, "pass"));
+        when(memberAddressRepository.save(any(MemberAddress.class)))
+                .thenReturn(SignUpDto.Request.toAddressEntity(signUpReq, SignUpDto.Request.toEntity(signUpReq, "pass") , true));
 
         SignUpDto.Response actual = memberService.signUp(signUpReq);
 
         assertEquals(signUpReq.getLoginId(), actual.getLoginId());
         assertEquals(signUpReq.getName(), actual.getName());
         assertEquals(signUpReq.getNickname(), actual.getNickname());
+
+        verify(memberAddressRepository).save(addrCaptor.capture());
+        MemberAddress saved = addrCaptor.getValue();
+
+        assertEquals(signUpReq.getAddressRequest().getCity(), saved.getCity());
+        assertEquals(signUpReq.getAddressRequest().getStreet(), saved.getStreet());
+        assertEquals(signUpReq.getAddressRequest().getZipcode(), saved.getZipcode());
+        assertEquals(actual.getId(), saved.getMember().getId());
     }
 
     @Test
@@ -166,7 +203,7 @@ class MemberServiceImplUnitTest {
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(jwtUtil.getTokenFromHeader(anyString())).thenReturn(jwtToken);
-        when(jwtUtil.getMemberUUIDFromToken(anyString())).thenReturn(UUID.fromString(memberId));
+        when(jwtUtil.getMemberStrUUIDFromToken(anyString())).thenReturn(memberId);
 
         String actual = memberService.logout(token);
 
@@ -184,6 +221,55 @@ class MemberServiceImplUnitTest {
                 () -> memberService.logout(token));
 
         assertEquals(ErrorCode.INVALID_TOKEN, exception.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("판매 상세 조회는 schedule auction의 시간 정보를 사용한다")
+    void getSaleDetail_uses_schedule_auction_time() {
+        Long productId = 10L;
+        LocalDateTime auctionStart = LocalDateTime.of(2026, 3, 25, 10, 0);
+        LocalDateTime auctionEnd = LocalDateTime.of(2026, 3, 25, 11, 0);
+
+        Product product = Product.builder()
+                .id(productId)
+                .title("camera")
+                .startBid(1000L)
+                .build();
+
+        Sale sale = Sale.builder()
+                .id(1L)
+                .product(product)
+                .salePrice(1500L)
+                .saleStatus(SaleStatus.SALE_SUCCESS)
+                .buyerMemberId(3L)
+                .build();
+
+        Auction scheduleAuction = Auction.builder()
+                .id(20L)
+                .product(product)
+                .auctionStart(auctionStart)
+                .auctionEnd(auctionEnd)
+                .build();
+
+        Bid bid = Bid.builder()
+                .id(100L)
+                .auction(scheduleAuction)
+                .member(com.auction.bid.domain.member.Member.builder().id(2L).build())
+                .bidAmount(1500L)
+                .bidTime(auctionEnd.minusMinutes(5))
+                .build();
+
+        when(queryDslRepository.getSaleEagerly(1L)).thenReturn(sale);
+        when(queryDslRepository.findAllByAuctionProductId(productId)).thenReturn(List.of(bid));
+        when(auctionRepository.findFirstByProductIdAndMemberIsNullOrderByIdAsc(productId))
+                .thenReturn(Optional.of(scheduleAuction));
+
+        DetailSaleHistoryDto actual = memberService.getSaleDetail(1L);
+
+        assertEquals(auctionStart, actual.getAuctionStart());
+        assertEquals(auctionEnd, actual.getAuctionEnd());
+        assertEquals(1, actual.getBidHistoryDtoList().size());
+        assertEquals(productId, actual.getBidHistoryDtoList().get(0).getProductId());
     }
 
 }

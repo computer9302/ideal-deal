@@ -35,12 +35,6 @@ public class Product extends BaseEntity {
     @Column(nullable = false)
     private long startBid;
 
-    @Column(nullable = false)
-    private LocalDateTime auctionStart;
-
-    @Column(nullable = false)
-    private LocalDateTime auctionEnd;
-
     @Enumerated(EnumType.STRING)
     private ProductBidPhase productBidPhase;
 
