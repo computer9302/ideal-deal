@@ -8,6 +8,7 @@ import com.auction.bid.global.security.jwt.JWTUtil;
 import com.auction.bid.global.security.jwt.LoginFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,6 +31,7 @@ public class SecurityConfig {
     private final JWTUtil jwtUtil;
     private final ObjectMapper objectMapper;
     private final RefreshTokenRepository refreshTokenRepository;
+    @Qualifier("productRedisTemplate")
     private final RedisTemplate<String, Object> redisTemplate;
     private final AuthenticationConfiguration authenticationConfiguration;
     private final CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler;

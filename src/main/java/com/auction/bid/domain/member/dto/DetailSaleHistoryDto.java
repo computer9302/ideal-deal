@@ -27,6 +27,8 @@ public class DetailSaleHistoryDto {
 
     public static DetailSaleHistoryDto fromSale(
             Sale sale,
+            LocalDateTime auctionStart,
+            LocalDateTime auctionEnd,
             List<BidHistoryDto> bidHistoryDtoList) {
 
         Product product = sale.getProduct();
@@ -34,13 +36,12 @@ public class DetailSaleHistoryDto {
         return DetailSaleHistoryDto.builder()
                 .title(product.getTitle())
                 .startBid(product.getStartBid())
-                .auctionStart(product.getAuctionStart())
-                .auctionEnd(product.getAuctionEnd())
+                .auctionStart(auctionStart)
+                .auctionEnd(auctionEnd)
                 .saleStatus(sale.getSaleStatus())
                 .saleAmount(sale.getSalePrice())
                 .buyerMemberId(sale.getBuyerMemberId())
                 .bidHistoryDtoList(bidHistoryDtoList)
                 .build();
     }
-
 }

@@ -46,8 +46,13 @@ public enum ErrorCode {
     NOT_ENOUGH_MONEY("돈이 충분하지 않습니다.", HttpStatus.BAD_REQUEST),
 
     // SocketException
-    FAILED_TO_CONNECT_WS("웹소켓 연결에 실패하였습니다.", HttpStatus.BAD_REQUEST);
+    FAILED_TO_CONNECT_WS("웹소켓 연결에 실패하였습니다.", HttpStatus.BAD_REQUEST),
 
+    // CartException
+    FAILED_TO_ADD_ITEM_TO_CART("장바구니에 상품을 추가하는데 실패하였습니다.", HttpStatus.BAD_REQUEST),
+    FAILED_TO_RETRIEVE_CART("장바구니 조회에 실패하였습니다.", HttpStatus.BAD_REQUEST),
+    FAILED_TO_DELETE_ITEM_CART("장바구니 상품 삭제에 실패하였습니다.", HttpStatus.BAD_REQUEST),
+    FAILED_TO_CLEAR_ITEM_CART("장바구니 비우기에 실패하였습니다.", HttpStatus.BAD_REQUEST);
 
 
 

@@ -470,7 +470,5 @@ OnDelete(action = OnDeleteAction.CASECADE)
 
 <br><br>
 # 📋 ERD
-
 https://www.erdcloud.com/d/AnQ7aM4ScgmHpkkJa
-
 ![image](https://github.com/user-attachments/assets/67c8cd66-63ef-4800-b092-59df3c86c88e)

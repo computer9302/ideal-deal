@@ -42,8 +42,6 @@ public class ProductDto {
                     .title(request.getTitle())
                     .description(request.getDescription())
                     .startBid(request.getStartBid())
-                    .auctionStart(request.getAuctionStart())
-                    .auctionEnd(request.getAuctionEnd())
                     .member(member)
                     .category(category)
                     .productBidPhase(ProductBidPhase.BEFORE)
@@ -61,14 +59,14 @@ public class ProductDto {
         private LocalDateTime auctionStart;
         private LocalDateTime auctionEnd;
 
-        public static Response fromEntity(Product product){
+        public static Response fromEntity(Product product, LocalDateTime auctionStart, LocalDateTime auctionEnd){
             return Response.builder()
                     .id(product.getId())
                     .title(product.getTitle())
                     .description(product.getDescription())
                     .startBid(product.getStartBid())
-                    .auctionStart(product.getAuctionStart())
-                    .auctionEnd(product.getAuctionEnd())
+                    .auctionStart(auctionStart)
+                    .auctionEnd(auctionEnd)
                     .build();
         }
     }

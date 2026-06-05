@@ -29,7 +29,7 @@ public interface QueryDslRepository {
 
     Page<Auction> getAuctionList(UUID memberUUID, Pageable pageable, AuctionStatus auctionStatus);
 
-    List<Bid> findAllByProductId(Long productId);
+    List<Bid> findAllByAuctionProductId(Long productId);
 
     Auction getAuctionEagerly(Long auctionId);
 

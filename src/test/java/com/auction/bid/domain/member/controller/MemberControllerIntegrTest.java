@@ -1,23 +1,31 @@
 package com.auction.bid.domain.member.controller;
 
-import com.auction.bid.domain.member.Address;
 import com.auction.bid.domain.member.dto.EmailDto;
 import com.auction.bid.domain.member.dto.SignUpDto;
+import com.auction.bid.domain.memberAddress.MemberAddress;
 import com.auction.bid.global.security.ConstSecurity;
 import com.auction.bid.global.security.jwt.JWTUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.MediaType;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import java.util.Properties;
 import java.util.UUID;
 
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -36,11 +44,23 @@ class MemberControllerIntegrTest {
     @Autowired
     private JWTUtil jwtUtil;
 
+    @MockitoBean
+    private JavaMailSender javaMailSender;
+
+    @MockitoBean(name = "productRedisTemplate")
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @MockitoBean
+    private ValueOperations<String, Object> valueOperations;
+
     SignUpDto.Request signUpReq;
     SignUpDto.Response signUpRes;
 
     @BeforeEach()
-    private void setUp() {
+    public void setUp() {
+        when(javaMailSender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+
         signUpReq = SignUpDto.Request.builder()
                 .loginId("testLoginId")
                 .password("1234567890")
@@ -49,8 +69,8 @@ class MemberControllerIntegrTest {
                 .name("testName")
                 .phoneNumber("010-1234-5678")
                 .emailVerified(true)
-                .address(
-                        Address.builder()
+                .addressRequest(
+                        MemberAddress.builder()
                                 .city("seoul")
                                 .street("saemalo")
                                 .zipcode("548")
@@ -126,5 +146,4 @@ class MemberControllerIntegrTest {
                         .content(objectMapper.writeValueAsString(requestDto)))
                 .andDo(print());
     }
-
 }

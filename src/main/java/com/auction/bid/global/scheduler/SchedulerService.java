@@ -39,36 +39,24 @@ public class SchedulerService {
     private final SaleRepository saleRepository;
     private final WebSocketBidHandler webSocketBidHandler;
 
-    /**
-     * 경매 상태를 변경하는 메서드입니다.
-     *
-     * @param product 경매가 진행 중인 상품
-     * @param productBidPhase 변경할 경매 상태
-     */
-    public void changeAuctionPhase(Product product, ProductBidPhase productBidPhase) {
-        product.changeAuctionPhase(productBidPhase);
-        productRepository.save(product);
-        webSocketBidHandler.phaseChange(product.getId(), productBidPhase);
-    }
-
-    /**
-     * 입찰 기록을 저장하는 메서드입니다.
-     *
-     * @param productId 상품 ID
-     * @param bidDtoList 입찰 데이터 리스트
-     */
-    public void saveBids(Long productId, List<BidDto> bidDtoList) {
-        if (bidDtoList.isEmpty()) {
-            return;
-        }
-
-        Product findProduct = productRepository.findById(productId)
+    public void changeAuctionPhase(Long productId, ProductBidPhase productBidPhase) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ProductException(ErrorCode.NOT_EXISTS_PRODUCT));
+        Auction scheduleAuction = auctionRepository.findFirstByProductIdAndMemberIsNullOrderByIdAsc(productId)
                 .orElseThrow(() -> new ProductException(ErrorCode.NOT_EXISTS_PRODUCT));
 
+        product.changeAuctionPhase(productBidPhase);
+        productRepository.save(product);
+        webSocketBidHandler.phaseChange(scheduleAuction.getId(), productBidPhase);
+    }
+
+    public void saveBids(Long auctionId, List<BidDto> bidDtoList) {
         if (bidDtoList.isEmpty()) {
-            bidRepository.save(BidDto.toBidEntity(new BidDto(), null, findProduct));
             return;
         }
+
+        Auction findAuction = auctionRepository.findById(auctionId)
+                .orElseThrow(() -> new ProductException(ErrorCode.NOT_EXISTS_PRODUCT));
 
         List<Long> memberIds = bidDtoList.stream()
                 .map(BidDto::getMemberId)
@@ -83,24 +71,19 @@ public class SchedulerService {
                 .map(bidDto -> BidDto.toBidEntity(
                         bidDto,
                         memberMap.get(bidDto.getMemberId()),
-                        findProduct)
+                        findAuction)
                 )
                 .forEach(bidRepository::save);
     }
 
-    /**
-     * 경매 결과를 저장하는 메서드입니다.
-     *
-     * @param winnerId 경매에서 승리한 회원 ID
-     * @param productId 경매가 진행된 상품 ID
-     * @param finalAmount 최종 입찰 금액
-     * @param bidDtoList 입찰 데이터 리스트
-     */
-    public void saveAuction(Long winnerId, Long productId, Long finalAmount, List<BidDto> bidDtoList) {
-        if (bidDtoList.isEmpty()) return;
+    public void saveAuction(Long winnerId, Long auctionId, Long finalAmount, List<BidDto> bidDtoList) {
+        if (bidDtoList.isEmpty()) {
+            return;
+        }
 
-        Product findProduct = productRepository.findById(productId)
+        Auction scheduleAuction = auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new ProductException(ErrorCode.NOT_EXISTS_PRODUCT));
+        Product findProduct = scheduleAuction.getProduct();
 
         List<Long> memberIds = bidDtoList.stream()
                 .map(BidDto::getMemberId)
@@ -111,20 +94,27 @@ public class SchedulerService {
 
         findMemberList.forEach(member -> {
             if (Objects.equals(member.getId(), winnerId)) {
-                auctionRepository.save(Auction.fromBid(member, findProduct, finalAmount, AuctionStatus.BID_SUCCESS));
+                auctionRepository.save(Auction.fromBid(
+                        member,
+                        findProduct,
+                        finalAmount,
+                        AuctionStatus.BID_SUCCESS,
+                        scheduleAuction.getAuctionStart(),
+                        scheduleAuction.getAuctionEnd()
+                ));
             } else {
-                auctionRepository.save(Auction.fromBid(member, findProduct, finalAmount, AuctionStatus.BID_FAILURE));
+                auctionRepository.save(Auction.fromBid(
+                        member,
+                        findProduct,
+                        finalAmount,
+                        AuctionStatus.BID_FAILURE,
+                        scheduleAuction.getAuctionStart(),
+                        scheduleAuction.getAuctionEnd()
+                ));
             }
         });
     }
 
-    /**
-     * 판매 기록을 저장하는 메서드입니다.
-     *
-     * @param buyerId 경매에서 상품을 구매한 회원 ID
-     * @param productId 경매가 진행된 상품 ID
-     * @param finalAmount 최종 입찰 금액
-     */
     public void saveSale(Long buyerId, Long productId, Long finalAmount) {
         Product findProduct = productRepository.findById(productId)
                 .orElseThrow(() -> new ProductException(ErrorCode.NOT_EXISTS_PRODUCT));
@@ -140,5 +130,4 @@ public class SchedulerService {
                 Sale.fromAuction(buyerId, finalAmount, SaleStatus.SALE_SUCCESS, findProduct.getMember(), findProduct)
         );
     }
-
 }

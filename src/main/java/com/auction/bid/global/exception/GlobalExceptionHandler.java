@@ -84,4 +84,10 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(CartOperationException.class)
+    public ResponseEntity<String> handleCartOperationException(CartOperationException ex) {
+        log.error("CartOperationException 발생: {}", ex.getMessage(), ex);
+        return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
+    }
+
 }

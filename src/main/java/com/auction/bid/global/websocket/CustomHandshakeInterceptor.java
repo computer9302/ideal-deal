@@ -1,5 +1,7 @@
 package com.auction.bid.global.websocket;
 
+import com.auction.bid.domain.auction.Auction;
+import com.auction.bid.domain.auction.AuctionRepository;
 import com.auction.bid.domain.member.Member;
 import com.auction.bid.domain.member.MemberService;
 import com.auction.bid.domain.product.Product;
@@ -19,6 +21,7 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.auction.bid.global.websocket.ConstWebsocket.AUCTION_ID;
 import static com.auction.bid.global.websocket.ConstWebsocket.MEMBER;
 import static com.auction.bid.global.websocket.ConstWebsocket.PRODUCT_ID;
 
@@ -29,6 +32,7 @@ public class CustomHandshakeInterceptor implements HandshakeInterceptor {
     private final JWTUtil jwtUtil;
     private final MemberService memberService;
     private final ProductService productService;
+    private final AuctionRepository auctionRepository;
 
     /**
      * WebSocket 핸드쉐이크 전에 실행되는 메서드로, 요청 헤더에서 상품 ID와 사용자 인증을 처리합니다.
@@ -61,6 +65,15 @@ public class CustomHandshakeInterceptor implements HandshakeInterceptor {
             return false;
         }
 
+        Auction scheduleAuction;
+        try {
+            scheduleAuction = auctionRepository.findFirstByProductIdAndMemberIsNullOrderByIdAsc(productId)
+                    .orElseThrow(() -> new SocketException(ErrorCode.INVALID_ACCESS));
+        } catch (SocketException e) {
+            log.info("SocketEx={}", e.getMessage());
+            return false;
+        }
+
         try {
             String token = request.getHeaders().getFirst("Cookie");
             UUID memberUUID = jwtUtil.getMemberUUIDFromToken(token);
@@ -72,6 +85,7 @@ public class CustomHandshakeInterceptor implements HandshakeInterceptor {
         }
 
         attributes.put(PRODUCT_ID, productId);
+        attributes.put(AUCTION_ID, scheduleAuction.getId());
         log.info("BeforeHandshake Success");
         return true;
     }

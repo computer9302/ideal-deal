@@ -1,6 +1,6 @@
 package com.auction.bid;
 
-import com.auction.bid.domain.product.service.ProductService;
+import com.auction.bid.domain.product.ProductService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;

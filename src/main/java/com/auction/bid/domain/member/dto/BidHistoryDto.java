@@ -21,7 +21,7 @@ public class BidHistoryDto {
 
     public static BidHistoryDto fromBidEntity(Bid bid) {
         return BidHistoryDto.builder()
-                .productId(bid.getProduct().getId())
+                .productId(bid.getAuction().getProduct().getId())
                 .memberId(bid.getMember().getId())
                 .bidAmount(bid.getBidAmount())
                 .bidTime(bid.getBidTime())
