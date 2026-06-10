@@ -14,7 +14,7 @@ public class CartController {
 
     private final CartService cartService;
 
-    public CartController(@Qualifier("redisCartService") CartService cartService) {
+    public CartController(@Qualifier("localCartService") CartService cartService) {
         this.cartService = cartService;
     }
 
